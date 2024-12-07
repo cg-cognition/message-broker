@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { isCacheSizeEqual } from '../../main/functions/helper.functions';
 import { IMessageBrokerConfig } from '../../main/contracts/contracts';
 
@@ -9,7 +10,7 @@ describe('Helper functions', () => {
         const config2: IMessageBrokerConfig = {
             replayCacheSize: 1,
         };
-        expect(isCacheSizeEqual(config1, config2)).toBeTrue();
+        expect(isCacheSizeEqual(config1, config2)).toBe(true);
     });
 
     it('should return false if config is not equal', () => {
@@ -19,18 +20,18 @@ describe('Helper functions', () => {
         const config2: IMessageBrokerConfig = {
             replayCacheSize: 2,
         };
-        expect(isCacheSizeEqual(config1, config2)).toBeFalse();
+        expect(isCacheSizeEqual(config1, config2)).toBe(false);
     });
 
     it('should return false if one config is undefined', () => {
         const config1: IMessageBrokerConfig = {
             replayCacheSize: 1,
         };
-        expect(isCacheSizeEqual(config1, undefined)).toBeFalse();
-        expect(isCacheSizeEqual(undefined, config1)).toBeFalse();
+        expect(isCacheSizeEqual(config1, undefined)).toBe(false);
+        expect(isCacheSizeEqual(undefined, config1)).toBe(false);
     });
 
     it('should return true if configs are undefined', () => {
-        expect(isCacheSizeEqual(undefined, undefined)).toBeTrue();
+        expect(isCacheSizeEqual(undefined, undefined)).toBe(true);
     });
 });

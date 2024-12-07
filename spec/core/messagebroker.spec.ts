@@ -1,27 +1,50 @@
-import { IMocked, Mock, replacePropertiesBeforeEach, setupFunction } from '@morgan-stanley/ts-mocking-bird';
+import 'reflect-metadata';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { map } from 'rxjs/operators';
 import { RSVPMediator } from '../../main/core/rsvp-mediator';
 import { IMessage, IMessageBrokerConfig, IRSVPConfig } from '../../main/contracts/contracts';
-import * as uuid from 'uuid';
-import * as Needle from '@morgan-stanley/needle';
 import { MessageBroker, messagebroker } from '../../main/core/messagebroker';
+import { createMock } from '../utils/test-utils';
+
+// Create a shared mock RSVPMediator instance
+const sharedMockRSVPMediator = createMock<RSVPMediator<any>>();
+
+// Create hoisted mock function for Needle.get
+const mockGet = vi.hoisted(() =>
+    vi.fn((constructor) => {
+        if (constructor === MessageBroker) {
+            return new MessageBroker(sharedMockRSVPMediator.mock);
+        }
+        return undefined;
+    }),
+);
+
+// Mock uuid module
+vi.mock('uuid', () => ({
+    v4: vi.fn(() => 'mockedId'),
+}));
+
+// Mock Needle module
+vi.mock('@morgan-stanley/needle', () => ({
+    get: mockGet,
+    Injectable: vi.fn(),
+}));
 
 describe('MessageBroker', () => {
-    let mockUuidPackage: IMocked<typeof uuid>;
-    let mockNeedlePackage: IMocked<typeof Needle>;
-    let mockRSVPMediator: IMocked<RSVPMediator<any>>;
-
-    replacePropertiesBeforeEach(() => {
-        mockUuidPackage = Mock.create<typeof uuid>().setup(setupFunction('v4', (() => 'mockedId') as any));
-        mockNeedlePackage = Mock.create<typeof Needle>().setup(setupFunction('get', () => getInstance() as any));
-        return [
-            { package: uuid, mocks: { ...mockUuidPackage.mock } },
-            { package: Needle, mocks: { ...mockNeedlePackage.mock } },
-        ];
-    });
+    let mockRSVPMediator: any;
+    let getFn: any;
+    let rsvpFn: any;
 
     beforeEach(() => {
-        mockRSVPMediator = Mock.create<RSVPMediator<any>>().setup(setupFunction('rsvp'));
+        vi.clearAllMocks();
+
+        // Setup RSVP mock
+        mockRSVPMediator = sharedMockRSVPMediator;
+        rsvpFn = vi.fn().mockReturnValue([]);
+        mockRSVPMediator.setup('rsvp', rsvpFn);
+
+        // Setup Needle mock
+        getFn = mockGet;
     });
 
     function getInstance<T = any>(): MessageBroker {
@@ -36,9 +59,8 @@ describe('MessageBroker', () => {
     it('should create an instance via messagebroker function', () => {
         const instance = messagebroker();
         expect(instance).toBeDefined();
-        expect(
-            mockNeedlePackage.withFunction('get').withParametersEqualTo((type: any) => type === MessageBroker),
-        ).wasCalledOnce();
+        expect(getFn).toHaveBeenCalledTimes(1);
+        expect(getFn).toHaveBeenCalledWith(MessageBroker);
     });
 
     it('should create messagebroker channel', () => {
@@ -350,9 +372,8 @@ describe('MessageBroker', () => {
             const instance = getInstance<IMySampleBroker>();
             instance.rsvp('bootstrap', { data: 'myData' });
 
-            expect(
-                mockRSVPMediator.withFunction('rsvp').withParametersEqualTo('bootstrap', { data: 'myData' }),
-            ).wasCalledOnce();
+            expect(rsvpFn).toHaveBeenCalledTimes(1);
+            expect(rsvpFn).toHaveBeenCalledWith('bootstrap', { data: 'myData' });
         });
 
         it('should call rsvp mediator when passing a handler', () => {
@@ -360,11 +381,8 @@ describe('MessageBroker', () => {
             const handler = () => ['rsvpResponse'];
             instance.rsvp('bootstrap', handler);
 
-            expect(
-                mockRSVPMediator
-                    .withFunction('rsvp')
-                    .withParametersEqualTo('bootstrap', (callBack: any) => handler === callBack),
-            ).wasCalledOnce();
+            expect(rsvpFn).toHaveBeenCalledTimes(1);
+            expect(rsvpFn).toHaveBeenCalledWith('bootstrap', handler);
         });
     });
 

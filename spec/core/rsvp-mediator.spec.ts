@@ -1,14 +1,17 @@
-import { IMocked, Mock, replacePropertiesBeforeEach, setupFunction } from '@morgan-stanley/ts-mocking-bird';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { IRSVPConfig, RSVPResponse } from '../../main/contracts/contracts';
 import { RSVPMediator } from '../../main/core/rsvp-mediator';
 import * as uuid from 'uuid';
+import { replaceProperties } from '../utils/test-utils';
 
 describe('RSVPMediator', () => {
-    let mockUuidPackage: IMocked<typeof uuid>;
-
-    replacePropertiesBeforeEach(() => {
-        mockUuidPackage = Mock.create<typeof uuid>().setup(setupFunction('v4', (() => 'mockedId') as any));
-        return [{ package: uuid, mocks: { ...mockUuidPackage.mock } }];
+    beforeEach(() => {
+        replaceProperties([
+            {
+                package: uuid,
+                mocks: { v4: () => 'mockedId' },
+            },
+        ]);
     });
 
     function getInstance<T = any>(): RSVPMediator<T> {
@@ -55,7 +58,7 @@ describe('RSVPMediator', () => {
         expect(invoked).toBeTruthy();
     });
 
-    it('should invoke the responders handler when rsvp (publish) invoked', () => {
+    it('should return the responders response when rsvp (publish) invoked', () => {
         const instance = getInstance<MockConfig>();
         instance.rsvp('rsvpChannel', () => {
             return 'Response 1';
@@ -63,11 +66,10 @@ describe('RSVPMediator', () => {
 
         const results = instance.rsvp('rsvpChannel', { data: 'bar' });
 
+        expect(Array.isArray(results)).toBe(true);
         if (Array.isArray(results)) {
             expect(results.length).toBe(1);
             expect(results[0]).toBe('Response 1');
-        } else {
-            fail('wrong type returned from test');
         }
     });
 
@@ -81,11 +83,10 @@ describe('RSVPMediator', () => {
 
         const results = instance.rsvp('rsvpChannel', { data: 'bar' });
 
+        expect(Array.isArray(results)).toBe(true);
         if (Array.isArray(results)) {
             expect(results.length).toBe(0);
             expect(invoked).toBeFalsy();
-        } else {
-            fail('wrong type returned from test');
         }
     });
 
@@ -96,12 +97,11 @@ describe('RSVPMediator', () => {
             return 'Response 1';
         });
 
+        expect(Array.isArray(responder)).toBe(false);
         if (!Array.isArray(responder)) {
             expect(responder).toBeDefined();
             expect(responder.id).toBeDefined();
             expect(responder.disconnect).toBeDefined();
-        } else {
-            fail('wrong type returned from test');
         }
     });
 
@@ -112,10 +112,9 @@ describe('RSVPMediator', () => {
             return 'Response 1';
         });
 
+        expect(Array.isArray(responder)).toBe(false);
         if (!Array.isArray(responder)) {
             responder.disconnect();
-        } else {
-            fail('wrong type returned from test');
         }
 
         const results = instance.rsvp('rsvpChannel', { data: 'bar' });
@@ -134,6 +133,7 @@ describe('RSVPMediator', () => {
 
         instance.rsvp('rsvpChannel', { data: 'bar' });
 
+        expect(Array.isArray(responder1)).toBe(false);
         if (!Array.isArray(responder1)) {
             responder1.disconnect();
             expect(() => responder1.disconnect()).not.toThrowError();
@@ -142,14 +142,19 @@ describe('RSVPMediator', () => {
 
     describe('Non matching', () => {
         let id = 0;
-        replacePropertiesBeforeEach(() => {
-            mockUuidPackage = Mock.create<typeof uuid>().setup(
-                setupFunction('v4', (() => {
-                    id++;
-                    return id;
-                }) as any),
-            );
-            return [{ package: uuid, mocks: { ...mockUuidPackage.mock } }];
+        beforeEach(() => {
+            id = 0;
+            replaceProperties([
+                {
+                    package: uuid,
+                    mocks: {
+                        v4: () => {
+                            id++;
+                            return id;
+                        },
+                    },
+                },
+            ]);
         });
 
         it('should not disconnect responders when disconnecting', () => {
@@ -167,6 +172,7 @@ describe('RSVPMediator', () => {
 
             instance.rsvp('rsvpChannel', { data: 'bar' });
 
+            expect(Array.isArray(responder1)).toBe(false);
             if (!Array.isArray(responder1)) {
                 responder1.disconnect();
             }
